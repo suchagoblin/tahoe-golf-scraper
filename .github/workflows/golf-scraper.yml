@@ -1,0 +1,38 @@
+name: Lake Tahoe Golf Events Scraper
+
+on:
+  schedule:
+    # Run every day at 8 AM Pacific Time (3 PM UTC)
+    - cron: '0 15 * * *'
+  workflow_dispatch: # Allows manual triggering
+
+jobs:
+  scrape-golf-events:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        pip install requests beautifulsoup4 lxml
+    
+    - name: Run golf event scraper
+      env:
+        TO_EMAIL: ${{ secrets.TO_EMAIL }}
+        FROM_EMAIL: ${{ secrets.FROM_EMAIL }}
+        EMAIL_APP_PASSWORD: ${{ secrets.EMAIL_APP_PASSWORD }}
+      run: python scraper.py
+    
+    - name: Upload results as artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: golf-events-results
+        path: golf_events_results.json
+        retention-days: 30
