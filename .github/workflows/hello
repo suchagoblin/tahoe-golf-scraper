@@ -1,0 +1,13 @@
+name: hello-runner
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  hello:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Runner is up ✅"
