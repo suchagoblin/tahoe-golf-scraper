@@ -2,7 +2,7 @@
 A config‑driven, testable, and CI‑ready rewrite of your golf events scraper.
 
 ## Highlights
-- Config‑driven courses (`courses.json`) so you don’t edit Python to add/change courses.
+- Config‑driven courses (`courses.json`) so you dont edit Python to add/change courses.
 - Robust HTTP with retries, timeouts, and optional caching.
 - Centralized logging and error collection.
 - Extensible parser registry (add per‑site parsers without touching the core).
