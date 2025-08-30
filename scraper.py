@@ -1,4 +1,12 @@
-import requests
+- name: Upload results as artifact
+          uses: actions/upload-artifact@v4
+          with:
+            name: golf-events-results
+            path: |
+              golf_events_results.json
+              READY_TO_PASTE.txt
+              scraper_summary.txt
+            retention-days: 30import requests
 from bs4 import BeautifulSoup
 import json
 from datetime import datetime
@@ -343,7 +351,7 @@ Great opportunities for Slicer Golf Club enthusiasts! 🏌️‍♂️
         return post_content
     
     def save_results(self):
-        """Save results"""
+        """Save results in both JSON and clean text formats"""
         results = {
             'scrape_summary': {
                 'scraped_at': datetime.now().strftime('%Y-%m-%d %H:%M UTC'),
@@ -357,10 +365,65 @@ Great opportunities for Slicer Golf Club enthusiasts! 🏌️‍♂️
             'wix_community_post': self.format_for_wix()
         }
         
+        # Save JSON results (for technical analysis)
         with open('golf_events_results.json', 'w') as f:
             json.dump(results, f, indent=2)
         
-        print("✅ Results saved to golf_events_results.json")
+        # Save clean text version (for easy copy-paste)
+        clean_post_content = self.format_for_wix()
+        with open('READY_TO_PASTE.txt', 'w', encoding='utf-8') as f:
+            f.write("=" * 60 + "\n")
+            f.write("SLICER GOLF CLUB - WIX GROUPS POST\n")
+            f.write("READY TO COPY & PASTE\n")
+            f.write("=" * 60 + "\n\n")
+            f.write(clean_post_content)
+            f.write("\n\n" + "=" * 60 + "\n")
+            f.write("INSTRUCTIONS:\n")
+            f.write("1. Select ALL text above the instructions\n")
+            f.write("2. Copy it (Ctrl+C or Cmd+C)\n")
+            f.write("3. Go to your Wix Groups\n")
+            f.write("4. Create New Post\n")
+            f.write("5. Paste the content\n")
+            f.write("6. Add any personal comments\n")
+            f.write("7. Post to your community!\n")
+            f.write("=" * 60 + "\n")
+        
+        # Save a summary for quick review
+        summary_content = f"""LAKE TAHOE GOLF SCRAPER SUMMARY
+Generated: {datetime.now().strftime('%B %d, %Y at %I:%M %p UTC')}
+
+RESULTS:
+• Courses checked: {len(self.courses)}
+• Courses with golf events: {len(self.events)}
+• Total golf programs found: {sum(c['events_found'] for c in self.events)}
+
+FILES CREATED:
+• golf_events_results.json (detailed technical data)
+• READY_TO_PASTE.txt (clean content for Wix Groups)
+• scraper_summary.txt (this file)
+
+"""
+        
+        if self.events:
+            summary_content += "COURSES WITH GOLF PROGRAMS:\n"
+            for course in self.events:
+                summary_content += f"• {course['course']} ({course['location']}) - {course['events_found']} programs\n"
+        else:
+            summary_content += "No golf programs found this scan.\n"
+            
+        if self.errors:
+            summary_content += f"\nISSUES ENCOUNTERED:\n"
+            for error in self.errors:
+                summary_content += f"• {error['course']}: {error['error']}\n"
+        
+        with open('scraper_summary.txt', 'w') as f:
+            f.write(summary_content)
+        
+        print("✅ Results saved in multiple formats:")
+        print("   📄 golf_events_results.json (technical data)")
+        print("   📋 READY_TO_PASTE.txt (clean Wix Groups post)")
+        print("   📊 scraper_summary.txt (quick overview)")
+        
         return results
 
 def main():
