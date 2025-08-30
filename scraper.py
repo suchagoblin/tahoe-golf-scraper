@@ -6,312 +6,246 @@ import os
 import time
 import re
 
-class SmartGolfEventExtractor:
+class FixedGolfEventScraper:
     def __init__(self):
         self.events = []
         self.errors = []
         self.courses = {
             'Edgewood Tahoe': {
-                'url': 'https://www.edgewood-tahoe.com',
+                'urls': [
+                    'https://www.edgewood-tahoe.com',
+                    'https://www.edgewood-tahoe.com/golf'
+                ],
                 'location': 'South Lake Tahoe',
                 'phone': '(775) 588-3566'
             },
+            'Tahoe Donner Golf Course': {
+                'urls': [
+                    'https://www.tahoedonner.com/amenities/amenities/golf',
+                    'https://www.tahoedonner.com/amenities/amenities/golf/lessons-clinics',
+                    'https://www.tahoedonner.com'
+                ],
+                'location': 'Truckee',
+                'phone': '(530) 587-9440'
+            },
             'Lake Tahoe Golf Course': {
-                'url': 'https://www.laketahoegc.com',
+                'urls': [
+                    'https://www.laketahoegc.com',
+                    'https://www.laketahoegc.com/golf'
+                ],
                 'location': 'South Lake Tahoe',
                 'phone': '(530) 577-0788'
             },
-            'Tahoe Paradise Golf Course': {
-                'url': 'https://www.tahoeparadisegolf.com',
-                'location': 'South Lake Tahoe',
-                'phone': '(530) 577-2121'
-            },
-            'Incline Village Golf': {
-                'url': 'https://www.ivgid.org',
-                'location': 'Incline Village',
-                'phone': '(775) 832-1146'
-            },
             'Northstar Golf Course': {
-                'url': 'https://www.northstarcalifornia.com',
+                'urls': [
+                    'https://www.northstarcalifornia.com/golf',
+                    'https://www.northstarcalifornia.com'
+                ],
                 'location': 'Truckee',
                 'phone': '(530) 562-2490'
             },
             'Coyote Moon Golf Course': {
-                'url': 'https://www.coyotemoon.com',
+                'urls': [
+                    'https://www.coyotemoon.com',
+                    'https://www.coyotemoon.com/golf'
+                ],
                 'location': 'Truckee',
                 'phone': '(530) 587-0886'
-            },
-            'Tahoe Donner Golf Course': {
-                'url': 'https://www.tahoedonner.com',
-                'location': 'Truckee',
-                'phone': '(530) 587-9440'
             }
         }
         
-        # Golf-specific keywords only
+        # Comprehensive golf keywords
         self.golf_keywords = [
-            'golf tournament', 'golf scramble', 'golf camp', 'junior golf', 'golf lesson', 
-            'golf league', 'golf clinic', 'golf instruction', 'golf championship',
-            'golf outing', 'pga', 'golf pro', 'tee time', 'driving range',
-            'putting', 'chipping', 'golf school', 'golf program'
-        ]
-        
-        # Words that indicate golf context
-        self.golf_context = [
-            'golf', 'golfer', 'course', 'fairway', 'green', 'tee', 'pro shop',
-            'handicap', 'par', 'birdie', 'eagle', 'club fitting', 'swing'
+            'golf tournament', 'tournament', 'scramble', 'golf camp', 'junior golf', 
+            'golf lesson', 'lesson', 'golf league', 'league', 'golf clinic', 'clinic',
+            'golf instruction', 'instruction', 'golf championship', 'pga', 'golf pro',
+            'golf program', 'golf school', 'tee time', 'golf event'
         ]
     
-    def is_golf_related(self, text):
-        """Check if text is actually golf-related"""
-        text_lower = text.lower()
-        
-        # Must contain golf-specific terms
-        has_golf_context = any(term in text_lower for term in self.golf_context)
-        
-        # Or contain golf-specific keywords
-        has_golf_keywords = any(keyword in text_lower for keyword in self.golf_keywords)
-        
-        # Exclude non-golf activities
-        non_golf_terms = ['sailing', 'tennis', 'swimming', 'hiking', 'biking', 'horseback', 'skiing']
-        has_non_golf = any(term in text_lower for term in non_golf_terms)
-        
-        return (has_golf_context or has_golf_keywords) and not has_non_golf
-        """Extract specific event details from text sections"""
-        event_details = {
-            'raw_text': text_section,
-            'keywords': keywords_found,
+    def extract_event_info(self, text_chunk):
+        """Extract event details from a text chunk"""
+        details = {
+            'text': text_chunk.strip(),
             'dates': [],
             'times': [],
             'prices': [],
             'ages': [],
-            'contact_info': [],
-            'registration_info': []
+            'contact': []
         }
         
-        # Extract dates
+        text_lower = text_chunk.lower()
+        
+        # Extract dates - more patterns
         date_patterns = [
-            r'\b(?:january|february|march|april|may|june|july|august|september|october|november|december)\s+\d{1,2}(?:st|nd|rd|th)?\s*(?:,\s*)?(?:\d{4}|\d{2})?',
+            r'\b(?:january|february|march|april|may|june|july|august|september|october|november|december)\s+\d{1,2}(?:st|nd|rd|th)?(?:\s*[-–]\s*\d{1,2}(?:st|nd|rd|th)?)?\s*(?:,\s*)?\d{0,4}',
+            r'\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\.?\s+\d{1,2}(?:\s*[-–]\s*\d{1,2})?',
             r'\d{1,2}[-/]\d{1,2}[-/]\d{2,4}',
-            r'\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\s+\d{1,2}',
             r'\b(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)s?',
-            r'(?:spring|summer|fall|winter)\s+\d{4}',
-            r'\d{4}\s+season'
+            r'(?:daily|weekly|monthly)',
+            r'(?:spring|summer|fall|winter)\s*(?:20\d{2}|\d{2})?'
         ]
         
         for pattern in date_patterns:
-            matches = re.findall(pattern, text_section, re.IGNORECASE)
-            event_details['dates'].extend(matches)
+            matches = re.findall(pattern, text_lower)
+            details['dates'].extend(matches)
         
         # Extract times
         time_patterns = [
-            r'\d{1,2}:\d{2}\s*(?:am|pm)',
+            r'\d{1,2}:\d{2}\s*(?:am|pm)?',
             r'\d{1,2}\s*(?:am|pm)',
-            r'\b(?:morning|afternoon|evening)\b'
+            r'\b(?:morning|afternoon|evening|noon)\b'
         ]
         
         for pattern in time_patterns:
-            matches = re.findall(pattern, text_section, re.IGNORECASE)
-            event_details['times'].extend(matches)
+            matches = re.findall(pattern, text_lower)
+            details['times'].extend(matches)
         
-        # Extract prices/costs
+        # Extract prices
         price_patterns = [
             r'\$\d+(?:\.\d{2})?(?:\s*per\s*\w+)?',
-            r'(?:cost|fee|price)[:s]?\s*\$?\d+',
+            r'(?:cost|fee|price)s?[:s]?\s*\$?\d+',
             r'\d+\s*dollars?',
-            r'free\s+(?:event|program|lesson|clinic)',
+            r'free\b',
             r'no\s+(?:cost|charge|fee)'
         ]
         
         for pattern in price_patterns:
-            matches = re.findall(pattern, text_section, re.IGNORECASE)
-            event_details['prices'].extend(matches)
+            matches = re.findall(pattern, text_lower)
+            details['prices'].extend(matches)
         
-        # Extract age information
+        # Extract age/skill info
         age_patterns = [
-            r'ages?\s+\d+(?:\s*[-to]+\s*\d+)?',
-            r'\d+(?:\s*[-to]+\s*\d+)?\s+years?\s+old',
-            r'(?:junior|adult|senior|youth|kids?|children)',
-            r'(?:beginner|intermediate|advanced)'
+            r'ages?\s+\d+(?:\s*[-–to]+\s*\d+)?',
+            r'\d+(?:\s*[-–to]+\s*\d+)?\s+years?\s+old',
+            r'\b(?:junior|adult|senior|youth|kids?|children)\b',
+            r'\b(?:beginner|intermediate|advanced|all\s+levels)\b'
         ]
         
         for pattern in age_patterns:
-            matches = re.findall(pattern, text_section, re.IGNORECASE)
-            event_details['ages'].extend(matches)
+            matches = re.findall(pattern, text_lower)
+            details['ages'].extend(matches)
         
-        # Extract contact information
+        # Extract contact info
         contact_patterns = [
             r'\(\d{3}\)\s*\d{3}[-.\s]*\d{4}',
             r'\d{3}[-.\s]*\d{3}[-.\s]*\d{4}',
             r'[\w.-]+@[\w.-]+\.\w+',
-            r'(?:call|contact|email|phone)[:s]?\s*[\(\d\w@.-]+',
             r'pro\s*shop',
-            r'register(?:ation)?'
+            r'(?:call|contact|register)'
         ]
         
         for pattern in contact_patterns:
-            matches = re.findall(pattern, text_section, re.IGNORECASE)
-            event_details['contact_info'].extend(matches)
+            matches = re.findall(pattern, text_lower)
+            details['contact'].extend(matches)
         
-        # Extract registration information
-        registration_patterns = [
-            r'register(?:ation)?\s+(?:opens?|begins?|starts?).*',
-            r'(?:deadline|due|closes?|ends?).*',
-            r'sign\s*up.*',
-            r'enrollment.*',
-            r'spots?\s+available',
-            r'limited\s+(?:space|spots)'
-        ]
-        
-        for pattern in registration_patterns:
-            matches = re.findall(pattern, text_section, re.IGNORECASE)
-            event_details['registration_info'].extend(matches)
-        
-        return event_details
+        return details
     
-    def find_event_sections(self, soup):
-        """Find sections of the webpage that contain event information"""
-        event_sections = []
+    def scrape_course_comprehensive(self, course_name, course_info):
+        """Comprehensive scraping with multiple fallbacks"""
+        print(f"🏌️ Comprehensively scanning {course_name}...")
         
-        # Look for common golf event containers
-        event_containers = soup.find_all([
-            'div', 'section', 'article', 'li', 'td', 'p'
-        ], class_=re.compile(r'golf|tournament|lesson|clinic|camp|program', re.I))
-        
-        # Also look for headers followed by content
-        headers = soup.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6'])
-        
-        for header in headers:
-            header_text = header.get_text().lower()
-            if any(keyword in header_text for keyword in self.golf_keywords) or 'golf' in header_text:
-                # Get the content following this header
-                content = []
-                next_element = header.next_sibling
-                
-                while next_element and len(content) < 5:  # Limit to avoid too much content
-                    if hasattr(next_element, 'get_text'):
-                        text = next_element.get_text().strip()
-                        if text and len(text) > 20:
-                            content.append(text)
-                    next_element = next_element.next_sibling
-                
-                if content:
-                    event_sections.append({
-                        'header': header.get_text().strip(),
-                        'content': ' '.join(content)
-                    })
-        
-        # Add any found event containers
-        for container in event_containers:
-            text = container.get_text().strip()
-            if len(text) > 50 and any(keyword in text.lower() for keyword in self.event_keywords):
-                event_sections.append({
-                    'header': 'Event Container',
-                    'content': text
-                })
-        
-        return event_sections
-    
-    def scrape_course_intelligently(self, course_name, course_info):
-        """Intelligently scrape for actual event content"""
         try:
-            print(f"🏌️ Intelligently scanning {course_name}...")
-            
             headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.5'
             }
             
-            # Try multiple golf-specific URLs
-            urls_to_try = [
-                course_info['url'],
-                course_info['url'] + '/golf',
-                course_info['url'] + '/programs',
-                course_info['url'] + '/lessons',
-                course_info['url'] + '/events',
-                course_info['url'] + '/tournaments',
-                course_info['url'] + '/junior-golf',
-                course_info['url'] + '/camps'
-            ]
+            found_events = []
             
-            all_events = []
-            
-            for url in urls_to_try[:4]:  # Limit to 4 URLs to prevent timeout
+            # Try each URL for this course
+            for url in course_info['urls']:
                 try:
                     print(f"  Checking: {url}")
-                    response = requests.get(url, headers=headers, timeout=12)
+                    response = requests.get(url, headers=headers, timeout=15)
                     
                     if response.status_code == 200:
                         soup = BeautifulSoup(response.content, 'html.parser')
                         
-                        # Remove navigation and footer noise
-                        for noise in soup(['nav', 'footer', 'header', 'script', 'style']):
+                        # Remove noise
+                        for noise in soup(['script', 'style', 'nav', 'footer', 'header']):
                             noise.decompose()
                         
-                        # Find event-specific sections
-                        event_sections = self.find_event_sections(soup)
+                        # Get all text content
+                        all_text = soup.get_text()
                         
-                        for section in event_sections:
-                            # Check if section contains our keywords
-                            section_text = (section['header'] + ' ' + section['content']).lower()
-                            found_keywords = [kw for kw in self.event_keywords if kw in section_text]
+                        # Split into chunks (paragraphs)
+                        chunks = [chunk.strip() for chunk in re.split(r'\n\s*\n', all_text) if chunk.strip()]
+                        
+                        # Analyze each chunk
+                        for chunk in chunks:
+                            if len(chunk) < 30 or len(chunk) > 800:  # Skip too short or too long
+                                continue
                             
-                            if found_keywords:
-                                print(f"    Found event section: {section['header'][:50]}...")
+                            chunk_lower = chunk.lower()
+                            
+                            # Check for golf keywords
+                            found_golf_keywords = [kw for kw in self.golf_keywords if kw in chunk_lower]
+                            
+                            if found_golf_keywords:
+                                # Must also contain some golf context
+                                golf_context = ['golf', 'course', 'pro', 'tee', 'green', 'fairway', 'swing', 'club']
+                                has_golf_context = any(context in chunk_lower for context in golf_context)
                                 
-                                # Extract detailed information
-                                event_details = self.extract_event_details(
-                                    section['header'] + '\n' + section['content'], 
-                                    found_keywords
-                                )
+                                # Exclude obvious non-golf content
+                                exclude_terms = ['sailing', 'tennis', 'swimming', 'hiking', 'skiing', 'restaurant', 'dining']
+                                has_exclude = any(term in chunk_lower for term in exclude_terms)
                                 
-                                all_events.append({
-                                    'title': section['header'],
-                                    'source_url': url,
-                                    'details': event_details,
-                                    'relevance_score': len(found_keywords) + 
-                                                     len(event_details['dates']) + 
-                                                     len(event_details['prices']) + 
-                                                     len(event_details['contact_info'])
-                                })
+                                if has_golf_context and not has_exclude:
+                                    print(f"    ✅ Found potential golf event: {found_golf_keywords}")
+                                    
+                                    # Extract detailed info
+                                    event_details = self.extract_event_info(chunk)
+                                    
+                                    # Score relevance
+                                    relevance = len(found_golf_keywords) + len(event_details['dates']) + len(event_details['prices'])
+                                    
+                                    found_events.append({
+                                        'title': chunk[:100] + '...' if len(chunk) > 100 else chunk[:50],
+                                        'keywords': found_golf_keywords,
+                                        'details': event_details,
+                                        'source_url': url,
+                                        'relevance_score': relevance
+                                    })
                         
-                        if all_events:
+                        if found_events:
+                            print(f"    Found {len(found_events)} golf-related sections")
                             break  # Found events, don't need to check more URLs
                     
-                    time.sleep(1)  # Be respectful
+                    time.sleep(2)  # Be respectful
                     
                 except requests.exceptions.RequestException as e:
-                    print(f"    Error loading {url}: {str(e)[:30]}...")
+                    print(f"    ❌ Failed to load {url}: {str(e)[:50]}")
                     continue
             
-            if all_events:
-                # Sort by relevance score and take the best ones
-                all_events.sort(key=lambda x: x['relevance_score'], reverse=True)
-                top_events = all_events[:3]  # Top 3 most relevant events
+            # Process results
+            if found_events:
+                # Sort by relevance and take top 3
+                found_events.sort(key=lambda x: x['relevance_score'], reverse=True)
+                top_events = found_events[:3]
                 
                 self.events.append({
                     'course': course_name,
                     'location': course_info['location'],
                     'phone': course_info['phone'],
-                    'url': course_info['url'],
-                    'events_found': len(all_events),
+                    'main_url': course_info['urls'][0],
+                    'events_found': len(found_events),
                     'top_events': top_events,
                     'scraped_at': datetime.now().strftime('%Y-%m-%d %H:%M UTC'),
                     'status': 'success'
                 })
                 
-                print(f"  ✅ Extracted {len(all_events)} detailed events")
+                print(f"  ✅ Successfully extracted {len(found_events)} golf events")
             else:
-                print(f"  ❌ No detailed events found")
-                self.record_error(course_name, "No events found")
+                print(f"  ❌ No golf events found")
+                self.record_error(course_name, "No golf events found")
                 
         except Exception as e:
-            print(f"  ❌ Error: {str(e)[:50]}")
-            self.record_error(course_name, str(e)[:50])
-        
-        time.sleep(2)  # Respectful delay
+            print(f"  ❌ Error: {str(e)}")
+            self.record_error(course_name, str(e)[:100])
     
     def record_error(self, course_name, error_msg):
-        """Record errors for debugging"""
+        """Record errors"""
         self.errors.append({
             'course': course_name,
             'error': error_msg,
@@ -319,136 +253,131 @@ class SmartGolfEventExtractor:
         })
     
     def scrape_all_courses(self):
-        """Scrape all courses intelligently"""
-        print("🏌️ SMART GOLF EVENT EXTRACTOR - LAKE TAHOE")
-        print("=" * 50)
-        print(f"Intelligently extracting event details from {len(self.courses)} courses...")
+        """Scrape all courses"""
+        print("🏌️ FIXED GOLF EVENT SCRAPER - LAKE TAHOE")
         print("=" * 50)
         
         for i, (course_name, course_info) in enumerate(self.courses.items(), 1):
             print(f"\n[{i}/{len(self.courses)}] {course_name}...")
-            self.scrape_course_intelligently(course_name, course_info)
+            self.scrape_course_comprehensive(course_name, course_info)
         
         print("\n" + "=" * 50)
-        print("✅ Smart extraction complete!")
+        print(f"✅ Scraping complete!")
+        print(f"Courses with events: {len(self.events)}")
         return self.events
     
-    def format_for_wix_community(self):
-        """Format extracted events for Wix community post"""
+    def format_for_wix(self):
+        """Format events for Wix posting"""
         if not self.events:
-            return "No detailed golf events found in this scan."
-        
-        post_content = f"""🏌️ **Detailed Golf Events & Programs - Lake Tahoe Area**
-*Updated: {datetime.now().strftime('%B %d, %Y')} | {len(self.events)} courses with detailed events*
+            return """🏌️ **Lake Tahoe Golf Course Check - No Current Events Found**
+*Updated: {}*
 
-Perfect opportunities for Slicer Golf Club enthusiasts! 🏌️‍♂️
+We checked 5 major golf courses in the Lake Tahoe area but didn't find any current golf events, programs, or tournaments posted online at this time.
+
+**Courses Checked:**
+• Edgewood Tahoe (South Lake Tahoe)
+• Tahoe Donner Golf Course (Truckee) 
+• Lake Tahoe Golf Course (South Lake Tahoe)
+• Northstar Golf Course (Truckee)
+• Coyote Moon Golf Course (Truckee)
+
+**What This Means:**
+• Courses may not have current events posted on their websites
+• Events might be listed in booking systems or social media only
+• It's still worth calling courses directly for upcoming programs
+
+**Next Steps for Slicer Golf Club Community:**
+📞 **Call courses directly** to ask about:
+- Upcoming tournaments or scrambles
+- Junior golf programs for summer 2025
+- Adult lessons and clinics
+- Corporate outing opportunities
+
+**Pro Tip:** Mention you're from the Slicer Golf Club community - they may be interested in equipment demos or partnerships!
+
+*We'll continue monitoring these courses and update you when new programs are announced.*""".format(datetime.now().strftime('%B %d, %Y'))
+        
+        post_content = f"""🏌️ **Golf Events & Programs - Lake Tahoe Area**
+*Updated: {datetime.now().strftime('%B %d, %Y')} | {len(self.events)} courses with events*
+
+Great opportunities for Slicer Golf Club enthusiasts! 🏌️‍♂️
 
 """
         
         for course_data in self.events:
             post_content += f"## 📍 **{course_data['course']}** ({course_data['location']})\n"
-            post_content += f"📞 {course_data['phone']} | 🌐 {course_data['url']}\n\n"
+            post_content += f"📞 {course_data['phone']} | 🌐 {course_data['main_url']}\n\n"
             
             for i, event in enumerate(course_data['top_events'], 1):
-                post_content += f"### {i}. {event['title']}\n"
+                post_content += f"### {i}. Golf Program/Event Found\n"
+                post_content += f"**Keywords:** {', '.join(event['keywords'])}\n"
                 
                 details = event['details']
                 
-                # Add dates if found
                 if details['dates']:
-                    unique_dates = list(set(details['dates']))[:3]
-                    post_content += f"📅 **Dates:** {', '.join(unique_dates)}\n"
+                    post_content += f"📅 **Dates:** {', '.join(list(set(details['dates'][:3])))}\n"
                 
-                # Add times if found
                 if details['times']:
-                    unique_times = list(set(details['times']))[:3]
-                    post_content += f"🕐 **Times:** {', '.join(unique_times)}\n"
+                    post_content += f"🕐 **Times:** {', '.join(list(set(details['times'][:3])))}\n"
                 
-                # Add prices if found
                 if details['prices']:
-                    unique_prices = list(set(details['prices']))[:3]
-                    post_content += f"💰 **Cost:** {', '.join(unique_prices)}\n"
+                    post_content += f"💰 **Pricing:** {', '.join(list(set(details['prices'][:3])))}\n"
                 
-                # Add age info if found
                 if details['ages']:
-                    unique_ages = list(set(details['ages']))[:3]
-                    post_content += f"👥 **Ages/Level:** {', '.join(unique_ages)}\n"
+                    post_content += f"👥 **Ages/Level:** {', '.join(list(set(details['ages'][:3])))}\n"
                 
-                # Add contact info if found
-                if details['contact_info']:
-                    clean_contacts = [c for c in details['contact_info'] if len(c) > 3][:2]
-                    if clean_contacts:
-                        post_content += f"📞 **Contact:** {', '.join(clean_contacts)}\n"
-                
-                post_content += f"\n"
+                post_content += f"📄 **Details:** {event['details']['text'][:200]}...\n\n"
             
             post_content += "---\n\n"
         
-        post_content += f"""
-💡 **These are real, actionable opportunities!** Contact the courses directly to:
+        post_content += """💡 **Take Action!** These are real opportunities:
+- Call the courses to get full program details
 - Ask about equipment demos with Slicer Golf Clubs
-- Inquire about group discounts for our community
+- Inquire about group rates for our community
 - Sign up for programs that match your skill level
 
-📧 **Found this helpful?** Let us know which programs you're interested in!
+📧 **Planning to participate?** Let us know in the comments!
 
-*Automatically extracted {sum(c['events_found'] for c in self.events)} total events across the region.*
-"""
+*Automatically found golf-related content across the Lake Tahoe region.*"""
         
         return post_content
     
-    def save_intelligent_results(self):
-        """Save detailed extraction results"""
+    def save_results(self):
+        """Save results"""
         results = {
-            'extraction_summary': {
+            'scrape_summary': {
                 'scraped_at': datetime.now().strftime('%Y-%m-%d %H:%M UTC'),
                 'courses_checked': len(self.courses),
-                'courses_with_detailed_events': len(self.events),
-                'total_events_extracted': sum(c['events_found'] for c in self.events),
-                'extraction_method': 'intelligent_content_analysis'
+                'courses_with_events': len(self.events),
+                'total_events_found': sum(c['events_found'] for c in self.events),
+                'method': 'comprehensive_golf_focused'
             },
             'detailed_events': self.events,
             'errors': self.errors,
-            'wix_community_post': self.format_for_wix_community()
+            'wix_community_post': self.format_for_wix()
         }
         
-        # Always save the required file
         with open('golf_events_results.json', 'w') as f:
             json.dump(results, f, indent=2)
         
-        print("✅ Intelligent results saved to golf_events_results.json")
-        
+        print("✅ Results saved to golf_events_results.json")
         return results
 
 def main():
-    """Main execution with intelligent extraction"""
+    """Main execution"""
     try:
-        print("🧠 Starting intelligent golf event extraction...")
+        scraper = FixedGolfEventScraper()
+        events = scraper.scrape_all_courses()
+        results = scraper.save_results()
         
-        extractor = SmartGolfEventExtractor()
-        
-        # Extract events intelligently
-        events = extractor.scrape_all_courses()
-        
-        # Save detailed results
-        results = extractor.save_intelligent_results()
-        
-        # Print summary
         total_events = sum(c['events_found'] for c in events)
-        print(f"\n🎯 INTELLIGENT EXTRACTION RESULTS:")
-        print(f"✅ Courses with detailed events: {len(events)}")
-        print(f"📋 Total events extracted: {total_events}")
-        print(f"❌ Errors: {len(extractor.errors)}")
-        
-        if events:
-            print(f"\n🎉 Successfully extracted detailed event information!")
-            print(f"📄 Check the JSON file for complete details and formatted Wix post.")
-        else:
-            print(f"\n🔍 No detailed events extracted this scan.")
+        print(f"\n🎯 FINAL RESULTS:")
+        print(f"Courses with golf events: {len(events)}")
+        print(f"Total golf events found: {total_events}")
+        print(f"Errors: {len(scraper.errors)}")
         
     except Exception as e:
         print(f"❌ Critical error: {e}")
-        # Ensure file exists for GitHub Actions
         with open('golf_events_results.json', 'w') as f:
             json.dump({'error': str(e), 'timestamp': datetime.now().isoformat()}, f)
 
