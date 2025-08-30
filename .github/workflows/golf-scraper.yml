@@ -1,41 +1,33 @@
-name: Lake Tahoe Golf Events Scraper
+name: golf-scraper
 
 on:
+  workflow_dispatch:
   schedule:
-    # Run every day at 8 AM Pacific Time (3 PM UTC)
-    - cron: '0 15 * * *'
-  workflow_dispatch: # Allows manual triggering
+    - cron: "0 12 * * *"  # daily at 12:00 UTC
 
 jobs:
-  scrape-golf-events:
+  build:
     runs-on: ubuntu-latest
-    
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-    
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.11'
-    
-    - name: Install dependencies
-      run: |
-        pip install requests beautifulsoup4 lxml
-    
-    - name: Run golf event scraper
-      env:
-        TO_EMAIL: ${{ secrets.TO_EMAIL }}
-        FROM_EMAIL: ${{ secrets.FROM_EMAIL }}
-        EMAIL_APP_PASSWORD: ${{ secrets.EMAIL_APP_PASSWORD }}
-      run: python scraper.py
-    
-    - name: Upload results as artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: golf-events-results
-        path: |
-          golf_events_results.json
-          READY_TO_PASTE.txt
-          scraper_summary.txt
-        retention-days: 30
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Lint
+        run: |
+          black --check .
+          isort --check-only .
+          flake8 .
+      - name: Test
+        run: pytest -q
+      - name: Run scraper
+        run: python main.py --out out/events.json
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: events-json
+          path: out/events.json
