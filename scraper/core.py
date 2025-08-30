@@ -8,6 +8,7 @@ from typing import Any, Dict, List
 from .http import HttpClient
 from .parsers import PARSERS
 
+
 class Scraper:
     def __init__(
         self,
@@ -48,7 +49,9 @@ class Scraper:
         parser_name = course.get("parser", "generic_events")
         parser = PARSERS.get(parser_name)
         if not parser:
-            self.logger.error("Parser not found: %s (course=%s)", parser_name, course.get("name"))
+            self.logger.error(
+                "Parser not found: %s (course=%s)", parser_name, course.get("name")
+            )
             return []
 
         events: List[Dict[str, Any]] = []
@@ -62,12 +65,16 @@ class Scraper:
                     ev.setdefault("source_url", url)
                 events.extend(parsed)
             except Exception as e:
-                self.logger.exception("Error parsing %s (%s): %s", course.get("name"), url, e)
-                self.errors.append({
-                    "course": course.get("name"),
-                    "url": url,
-                    "error": str(e),
-                })
+                self.logger.exception(
+                    "Error parsing %s (%s): %s", course.get("name"), url, e
+                )
+                self.errors.append(
+                    {
+                        "course": course.get("name"),
+                        "url": url,
+                        "error": str(e),
+                    }
+                )
         return events
 
     def run(self) -> Dict[str, Any]:
@@ -87,7 +94,12 @@ class Scraper:
         seen = set()
         unique = []
         for ev in all_events:
-            key = (ev.get("course"), ev.get("title"), ev.get("date"), ev.get("source_url"))
+            key = (
+                ev.get("course"),
+                ev.get("title"),
+                ev.get("date"),
+                ev.get("source_url"),
+            )
             if key in seen:
                 continue
             seen.add(key)
