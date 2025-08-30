@@ -30,12 +30,12 @@ jobs:
         EMAIL_APP_PASSWORD: ${{ secrets.EMAIL_APP_PASSWORD }}
       run: python scraper.py
     
-   - name: Upload results as artifact
-  uses: actions/upload-artifact@v4
-  with:
-    name: golf-events-results
-    path: |
-      golf_events_results.json
-      READY_TO_PASTE.txt
-      scraper_summary.txt
-    retention-days: 30
+    - name: Upload results as artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: golf-events-results
+        path: |
+          golf_events_results.json
+          READY_TO_PASTE.txt
+          scraper_summary.txt
+        retention-days: 30
