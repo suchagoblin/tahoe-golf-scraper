@@ -48,14 +48,35 @@ class SmartGolfEventExtractor:
             }
         }
         
-        # Enhanced keywords for better detection
-        self.event_keywords = [
-            'tournament', 'scramble', 'camp', 'junior', 'lesson', 
-            'league', 'clinic', 'instruction', 'championship',
-            'outing', 'register', 'sign up', 'golf school', 'pga'
+        # Golf-specific keywords only
+        self.golf_keywords = [
+            'golf tournament', 'golf scramble', 'golf camp', 'junior golf', 'golf lesson', 
+            'golf league', 'golf clinic', 'golf instruction', 'golf championship',
+            'golf outing', 'pga', 'golf pro', 'tee time', 'driving range',
+            'putting', 'chipping', 'golf school', 'golf program'
+        ]
+        
+        # Words that indicate golf context
+        self.golf_context = [
+            'golf', 'golfer', 'course', 'fairway', 'green', 'tee', 'pro shop',
+            'handicap', 'par', 'birdie', 'eagle', 'club fitting', 'swing'
         ]
     
-    def extract_event_details(self, text_section, keywords_found):
+    def is_golf_related(self, text):
+        """Check if text is actually golf-related"""
+        text_lower = text.lower()
+        
+        # Must contain golf-specific terms
+        has_golf_context = any(term in text_lower for term in self.golf_context)
+        
+        # Or contain golf-specific keywords
+        has_golf_keywords = any(keyword in text_lower for keyword in self.golf_keywords)
+        
+        # Exclude non-golf activities
+        non_golf_terms = ['sailing', 'tennis', 'swimming', 'hiking', 'biking', 'horseback', 'skiing']
+        has_non_golf = any(term in text_lower for term in non_golf_terms)
+        
+        return (has_golf_context or has_golf_keywords) and not has_non_golf
         """Extract specific event details from text sections"""
         event_details = {
             'raw_text': text_section,
@@ -152,17 +173,17 @@ class SmartGolfEventExtractor:
         """Find sections of the webpage that contain event information"""
         event_sections = []
         
-        # Look for common event containers
+        # Look for common golf event containers
         event_containers = soup.find_all([
             'div', 'section', 'article', 'li', 'td', 'p'
-        ], class_=re.compile(r'event|program|camp|tournament|lesson|clinic', re.I))
+        ], class_=re.compile(r'golf|tournament|lesson|clinic|camp|program', re.I))
         
         # Also look for headers followed by content
         headers = soup.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6'])
         
         for header in headers:
             header_text = header.get_text().lower()
-            if any(keyword in header_text for keyword in self.event_keywords):
+            if any(keyword in header_text for keyword in self.golf_keywords) or 'golf' in header_text:
                 # Get the content following this header
                 content = []
                 next_element = header.next_sibling
